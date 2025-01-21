@@ -109,6 +109,9 @@ func consume(wg *sync.WaitGroup, r io.Reader) {
 
 func parse(line string) {
 	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "=== RUN") {
+		return
+	}
 	defer color.Unset()
 
 	var c color.Attribute
