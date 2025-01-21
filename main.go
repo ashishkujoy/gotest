@@ -34,6 +34,21 @@ const (
 	skipNoTestsEnv = "GOTEST_SKIPNOTESTS"
 )
 
+type ResultSummary struct {
+	pass    int
+	fail    int
+	skipped int
+}
+
+func (r *ResultSummary) Print() {
+	total := r.pass + r.fail + r.skipped
+	color.Cyan("Summary:")
+	color.White("Total: %d", total)
+	color.Green("PASS: %d", r.pass)
+	color.Yellow("SKIP: %d", r.skipped)
+	color.Red("FAIL: %d", r.fail)
+}
+
 func main() {
 	enablePalette()
 	enableSkipNoTests()
@@ -94,20 +109,22 @@ func gotest(args []string) int {
 func consume(wg *sync.WaitGroup, r io.Reader) {
 	defer wg.Done()
 	reader := bufio.NewReader(r)
+	summary := &ResultSummary{}
 	for {
 		l, _, err := reader.ReadLine()
 		if err == io.EOF {
-			return
+			break
 		}
 		if err != nil {
 			log.Print(err)
-			return
+			break
 		}
-		parse(string(l))
+		parse(string(l), summary)
 	}
+	summary.Print()
 }
 
-func parse(line string) {
+func parse(line string, summary *ResultSummary) {
 	trimmed := strings.TrimSpace(line)
 	if strings.HasPrefix(trimmed, "=== RUN") {
 		return
@@ -126,16 +143,19 @@ func parse(line string) {
 	case strings.HasPrefix(trimmed, "ok"):
 		fallthrough
 	case strings.HasPrefix(trimmed, "PASS"):
+		summary.pass += 1
 		c = pass
 
 	// skipped
 	case strings.HasPrefix(trimmed, "--- SKIP"):
+		summary.skipped += 1
 		c = skip
 
 	// failed
 	case strings.HasPrefix(trimmed, "--- FAIL"):
 		fallthrough
 	case strings.HasPrefix(trimmed, "FAIL"):
+		summary.fail += 1
 		c = fail
 	}
 
